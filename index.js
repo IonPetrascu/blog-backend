@@ -11,6 +11,9 @@ const path = require('path')
 const http = require('http');
 const ws = require('./websocket');
 
+
+const { verifyToken } = require('./utils/token')
+
 const postRouter = require('./routes/post.routes')
 const authRouter = require('./routes/auth.routes')
 const profileRouter = require('./routes/profile.routes')
