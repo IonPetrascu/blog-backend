@@ -89,31 +89,22 @@ ORDER BY p.created_at DESC;
   async addPost(req, res) {
     try {
       const { title, description } = req.body;
-
       if (!title || !description) {
         return res.status(400).json({ message: 'Title and description are required' });
       }
-      const img = req.files ? req.files.img : null;
+      const imageName = req.imageName || null;
+      const videoName = req.videoName || null;
+
       const user_id = req.user.id
 
-      let fileName = null
-      if (img) {
-        fileName = uuidv4() + '.jpg';
-        img.mv(path.resolve(__dirname, '..', 'static', fileName), (err) => {
-          if (err) {
-            console.error('Error moving file:', err);
-            return res.status(500).send('Error uploading image');
-          }
-        });
-      }
-
-      const insertQuery = fileName
-        ? `INSERT INTO posts(title, content, user_id, img) VALUES($1, $2, $3, $4) RETURNING *`
+      const insertQuery = imageName || videoName
+        ? `INSERT INTO posts(title, content, user_id, img, video) VALUES($1, $2, $3, $4, $5) RETURNING *`
         : `INSERT INTO posts(title, content, user_id) VALUES($1, $2, $3) RETURNING *`;
 
-      const values = fileName
-        ? [title, description, user_id, fileName]
+      const values = imageName || videoName
+        ? [title, description, user_id, imageName, videoName]
         : [title, description, user_id];
+      console.log(values);
 
       const result = await db.query(insertQuery, values);
       res.status(200).json(result.rows[0]);
