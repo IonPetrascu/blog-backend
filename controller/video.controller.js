@@ -5,7 +5,9 @@ const path = require('path')
 class VideoController {
   async streamVideo(req, res) {
     const { filename } = req.params; //get name file
-    const videoPath = path.join(__dirname, '../static/videos', filename); //create path to file
+    const videoPath = path.join(__dirname, '../uploads/videos', filename); //create path to file
+    console.log(videoPath);
+
 
     fs.stat(videoPath, (err, stats) => {
       if (err || !stats) {
@@ -14,6 +16,7 @@ class VideoController {
 
       const fileSize = stats.size
       const range = req.headers.range// get range
+      res.setHeader('Cache-Control', 'no-store');
 
       if (range) {//if client get some range
 
