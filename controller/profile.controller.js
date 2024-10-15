@@ -115,9 +115,11 @@ ORDER BY p.created_at DESC;
       }
 
       const userId = req.user.id;
-      const img = req.files ? req.files.img : null;
 
-      if (img) {
+      const uniqueName = req.imageName
+      const { file } = req
+
+      if (file) {
         const currentUser = await db.query(
           'SELECT img FROM "usersReg" WHERE id = $1',
           [userId]
@@ -127,36 +129,58 @@ ORDER BY p.created_at DESC;
           return res.status(404).json({ message: 'User not found' });
         }
 
-        const currentImg = currentUser.rows[0].img;
-        const currentImgPath = currentImg ? path.resolve(__dirname, '..', 'server/static', currentImg) : null;
+        const result = await db.query(
+          'UPDATE "usersReg" SET img = $1 WHERE id = $2 RETURNING *',
+          [uniqueName, userId]
+        );
 
-        if (currentImg && fs.existsSync(currentImgPath)) {
-          fs.unlinkSync(currentImgPath);
+        if (result.rowCount === 0) {
+          return res.status(404).json({ message: 'User not found' });
         }
 
-        const fileName = uuidv4() + '.jpg';
-        const filePath = path.resolve(__dirname, '..', 'static', fileName);
+        res.status(200).json({ message: 'Profile image updated successfully', user: result.rows[0] });
 
-        img.mv(filePath, async (err) => {
-          if (err) {
-            console.error('Error changing profile img:', err);
-            return res.status(500).send({ message: 'Error changing image' });
-          }
-
-          const result = await db.query(
-            'UPDATE "usersReg" SET img = $1 WHERE id = $2 RETURNING *',
-            [fileName, userId]
-          );
-
-          if (result.rowCount === 0) {
-            return res.status(404).json({ message: 'User not found' });
-          }
-
-          res.status(200).json({ message: 'Profile image updated successfully', user: result.rows[0] });
-        });
       } else {
         return res.status(400).json({ message: 'No image file provided' });
       }
+
+    } catch (err) {
+      console.error('Error on update profile image:', err);
+      res.status(500).json({ message: "Error on update profile image" });
+    }
+  }
+
+  async deleteImgProfile(req, res) {
+    try {
+      if (!req.user) {
+        return res.status(401).send('Token not found');
+      }
+      const userId = req.user.id;
+
+
+      const currentUser = await db.query(
+        'SELECT img FROM "usersReg" WHERE id = $1',
+        [userId]
+      );
+
+      if (currentUser.rowCount === 0) {
+        return res.status(404).json({ message: 'User not found' });
+      }
+
+      const result = await db.query(
+        'UPDATE "usersReg" SET img = $1 WHERE id = $2 RETURNING *',
+        [null, userId]
+      );
+
+      if (result.rowCount === 0) {
+        return res.status(404).json({ message: 'User not found' });
+      }
+
+      res.status(200).json({ message: 'Profile image updated successfully', user: result.rows[0] });
+
+
+
+
     } catch (err) {
       console.error('Error on update profile image:', err);
       res.status(500).json({ message: "Error on update profile image" });
