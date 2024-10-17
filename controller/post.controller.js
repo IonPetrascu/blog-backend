@@ -115,6 +115,75 @@ ORDER BY p.created_at DESC;
 
   }
 
+  async updatePost(req, res) {
+    try {
+      const { title, description, deleteImage, deleteVideo } = req.body;
+      if (!title || !description) {
+        return res.status(400).json({ message: 'Title and description are required' });
+      }
+
+      const oldImgName = (req.body.imgName && req.body.imgName !== 'null') ? req.body.imgName : null;
+      const oldVideoName = (req.body.videoName && req.body.videoName !== 'null') ? req.body.videoName : null;
+
+      let newimgName = (req.imageName && req.imageName !== 'null') ? req.imageName : oldImgName;
+      let newVideoName = (req.videoName && req.videoName !== 'null') ? req.videoName : oldVideoName;
+
+      if (deleteImage === 'true') {
+        if (req.imageName && req.imageName !== 'null') {
+          // Если запрос на удаление и есть новое изображение, заменяем старое на новое
+          newimgName = req.imageName;
+        } else {
+          // Если новое изображение не предоставлено, удаляем старое
+          newimgName = null;
+        }
+      }
+
+      if (deleteVideo === 'true') {
+        if (req.videoName && req.videoName !== 'null') {
+          // Если запрос на удаление и есть новое видео, заменяем старое на новое
+          newVideoName = req.videoName;
+        } else {
+          // Если новое видео не предоставлено, удаляем старое
+          newVideoName = null;
+        }
+      }
+
+      const user_id = req.user.id;
+      const postId = req.params.id;
+
+      let updateQuery = `
+      UPDATE posts
+      SET title = $1, content = $2, user_id = $3`;
+
+      const values = [title, description, user_id];
+
+      if (newimgName !== undefined) {
+        updateQuery += `, img = $4`;
+        values.push(newimgName);
+      }
+
+      if (newVideoName !== undefined) {
+        updateQuery += `, video = $${values.length + 1}`;
+        values.push(newVideoName);
+      }
+
+      updateQuery += ` WHERE id = $${values.length + 1} RETURNING *`;
+      values.push(postId);
+
+      const result = await db.query(updateQuery, values);
+
+      if (result.rows.length === 0) {
+        return res.status(404).json({ message: 'Post not found' });
+      }
+
+      res.status(200).json(result.rows[0]);
+    } catch (error) {
+      console.error('Error on update post:', error);
+      res.status(500).send('Error on update post');
+    }
+  }
+
+
   async deletePost(req, res) {
     if (!req.user) {
       return res.status(401).send('Token not found');
