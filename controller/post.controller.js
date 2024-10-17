@@ -12,8 +12,6 @@ class PostController {
     const { sortBy = 'new', searchQuery = '' } = req.query;
     const order = sortBy === 'old' ? 'ASC' : 'DESC';
 
-    console.log(sortBy, order, searchQuery);
-
     try {
       let query = `
     WITH like_dislike_counts AS (

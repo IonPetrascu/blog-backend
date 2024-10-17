@@ -20,8 +20,6 @@ class ProfileController {
     const { sortBy = 'new', searchQuery = '' } = req.query;
     const order = sortBy === 'old' ? 'ASC' : 'DESC';
 
-    console.log('PROFILE GET ', sortBy, order, searchQuery);
-
     try {
       const queryUserInfo = `SELECT id, u_name, u_email ,img
     FROM "usersReg"
