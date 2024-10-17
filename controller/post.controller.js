@@ -7,10 +7,15 @@ class PostController {
     if (!req.user) {
       return res.status(401).send('Token not found');
     }
+
     const user_id = req.user.id;
+    const { sortBy = 'new', searchQuery = '' } = req.query;
+    const order = sortBy === 'old' ? 'ASC' : 'DESC';
+
+    console.log(sortBy, order, searchQuery);
 
     try {
-      const query = `
+      let query = `
     WITH like_dislike_counts AS (
   SELECT
     v.entity_id AS post_id,
@@ -43,11 +48,20 @@ LEFT JOIN like_dislike_counts lc ON p.id = lc.post_id
 LEFT JOIN user_votes uv ON p.id = uv.post_id
 LEFT JOIN comments c ON p.id = c.post_id
 LEFT JOIN "usersReg" ur ON p.user_id = ur.id
-GROUP BY p.id, lc.likes_count, lc.dislikes_count, uv.user_vote,ur.id, ur.u_name, ur.u_email, ur.img
-ORDER BY p.created_at DESC;
+    `;
+      const values = [user_id];
+
+      if (searchQuery) {
+        query += ` WHERE p.title ILIKE $2`;
+        values.push(`%${searchQuery}%`);
+      }
+
+      query += `
+      GROUP BY p.id, lc.likes_count, lc.dislikes_count, uv.user_vote, ur.id, ur.u_name, ur.u_email, ur.img
+      ORDER BY p.created_at ${order};
     `;
 
-      const result = await db.query(query, [user_id]);
+      const result = await db.query(query, values);
 
       res.status(200).json(result.rows);
     } catch (err) {
