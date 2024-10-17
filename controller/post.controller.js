@@ -104,7 +104,6 @@ ORDER BY p.created_at DESC;
       const values = imageName || videoName
         ? [title, description, user_id, imageName, videoName]
         : [title, description, user_id];
-      console.log(values);
 
       const result = await db.query(insertQuery, values);
       res.status(200).json(result.rows[0]);

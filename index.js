@@ -9,8 +9,6 @@ const http = require('http');
 const ws = require('./websocket');
 const fs = require('fs');
 
-
-const { upload, uploadFile, deleteFile, replaceFile } = require('./multer')
 const { verifyToken } = require('./utils/token')
 
 const postRouter = require('./routes/post.routes')
@@ -56,11 +54,5 @@ const createDirIfNotExists = (dir) => {
 createDirIfNotExists(path.join(__dirname, 'uploads/images'));
 createDirIfNotExists(path.join(__dirname, 'uploads/videos'));
 createDirIfNotExists(path.join(__dirname, 'uploads/audio'));
-
-
-
-app.post('/api/upload', verifyToken, upload.single('file'), uploadFile);
-app.delete('/api/delete', deleteFile);
-app.post('/api/replace', upload.single('file'), replaceFile);
 
 module.exports = app;
