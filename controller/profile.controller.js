@@ -17,6 +17,8 @@ class ProfileController {
       return res.status(401).send('Token not found');
     }
     const userId = req.params.id
+    const { sortBy = 'new', searchQuery = '' } = req.query;
+    const order = sortBy === 'old' ? 'ASC' : 'DESC';
 
     try {
       const queryUserInfo = `SELECT id, u_name, u_email ,img
@@ -29,7 +31,7 @@ class ProfileController {
         return res.status(404).json({ message: "User not found" });
       }
 
-      const queryPostsOfUser = `
+      let queryPostsOfUser = `
 WITH like_dislike_counts AS (
   SELECT
     v.entity_id AS post_id,
@@ -71,12 +73,21 @@ LEFT JOIN user_votes uv ON p.id = uv.post_id
 LEFT JOIN comments c ON p.id = c.post_id
 LEFT JOIN "usersReg" ur ON p.user_id = ur.id
 WHERE p.user_id = $1
-GROUP BY p.id, lc.likes_count, lc.dislikes_count, uv.user_vote, ur.id, ur.u_name, ur.u_email, ur.img
-ORDER BY p.created_at DESC;
+
 `;
+      const values = [userId, req.user.id];
 
-      const postsResult = await db.query(queryPostsOfUser, [userId, req.user.id]);
+      if (searchQuery) {
+        queryPostsOfUser += ` AND p.title ILIKE $3`;
+        values.push(`%${searchQuery}%`);
+      }
 
+      queryPostsOfUser += `
+      GROUP BY p.id, lc.likes_count, lc.dislikes_count, uv.user_vote, ur.id, ur.u_name, ur.u_email, ur.img
+      ORDER BY p.created_at ${order};
+    `;
+
+      const postsResult = await db.query(queryPostsOfUser, values);
 
       //get subscribers
       const querySubscribers = `SELECT u.id AS subscriber_id, u.u_name, u.u_email, u.img
