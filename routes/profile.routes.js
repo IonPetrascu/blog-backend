@@ -6,7 +6,7 @@ const profileController = require('../controller/profile.controller')
 
 router.get('/info', profileController.info)
 router.get('/profile/:id', profileController.getProfile)
-router.patch('/profile/img', upload.single('file'), replaceFile, profileController.changeImgProfile)
+router.patch('/profile/img', upload.single('img'), replaceFile, profileController.changeImgProfile)
 router.delete('/profile/img', deleteFile, profileController.deleteImgProfile)
 
 module.exports = router

@@ -3,6 +3,20 @@ const fs = require('fs');
 const path = require('path');
 const { generateUniqueFileName } = require('./utils/index')
 
+/* const fileTypes = {
+  image: ['.jpg', '.jpeg', '.png', '.gif'],
+  video: ['.mp4', '.mkv', '.avi'],
+  audio: ['.mp3', '.wav'],
+};
+
+const getFileFolder = (ext) => {
+  if (fileTypes.image.includes(ext)) return 'uploads/images';
+  if (fileTypes.video.includes(ext)) return 'uploads/videos';
+  if (fileTypes.audio.includes(ext)) return 'uploads/audio';
+  return null;
+}; */
+
+
 const storage = multer.diskStorage({
   destination: function (req, file, cb) {
     const ext = path.extname(file.originalname).toLowerCase().trim()
@@ -41,10 +55,6 @@ const upload = multer({
 }
 )
 
-const uploadFile = (req, res) => {
-  res.json(req.file);
-};
-
 const deleteFile = (req, res, next) => {
   const { img, video } = req.body;
   if (img) {
@@ -56,7 +66,6 @@ const deleteFile = (req, res, next) => {
     }
 
     const imgPath = path.join(__dirname, imgFolder, img);
-    console.log(imgPath);
 
     fs.unlink(imgPath, (err) => {
       if (err) {
@@ -75,7 +84,6 @@ const deleteFile = (req, res, next) => {
 
     const videoPath = path.join(__dirname, videoFolder, video);
 
-    console.log(videoPath);
     fs.unlink(videoPath, (err) => {
       if (err) {
         console.error('Error deleting video:', err);
@@ -87,46 +95,48 @@ const deleteFile = (req, res, next) => {
 
 };
 
-const replaceFile = (req, res, next) => {
-  const { name } = req.body
-  const { file } = req
+const replaceFile = async (req, res, next) => {
+  const { imgName, videoName, deleteImage, deleteVideo } = req.body;
+  const promises = [];
 
-  if (!file) {
-    return res.status(400).json({ message: 'No new file uploaded' });
+  if (imgName && imgName !== 'null' && deleteImage === 'true') {
+    const oldImgPath = path.join(__dirname, 'uploads/images', imgName);
+    promises.push(new Promise((resolve, reject) => {
+      fs.unlink(oldImgPath, (err) => {
+        if (err) {
+          console.error('Error deleting old image:', err);
+          return reject(err);
+        }
+        resolve();
+      });
+    }));
   }
 
-  const ext = path.extname(file.originalname).toLowerCase();
-  let folder = '';
-
-  if (['.jpg', '.jpeg', '.png', '.gif'].includes(ext)) {
-    folder = 'uploads/images';
-  } else if (['.mp4', '.mkv', '.avi'].includes(ext)) {
-    folder = 'uploads/videos';
-  } else if (['.mp3', '.wav'].includes(ext)) {
-    folder = 'uploads/audio';
-  } else {
-
-
-    return res.status(400).json({ message: 'Unsupported file type', ext });
+  if (videoName && videoName !== 'null' && deleteVideo === 'true') {
+    const oldVideoPath = path.join(__dirname, 'uploads/videos', videoName);
+    promises.push(new Promise((resolve, reject) => {
+      fs.unlink(oldVideoPath, (err) => {
+        if (err) {
+          console.error('Error deleting old video:', err);
+          return reject(err);
+        }
+        resolve();
+      });
+    }));
   }
 
-  if (name) {
-
-    const oldFilePath = path.join(__dirname, folder, name);
-    fs.unlink(oldFilePath, (err) => {
-      return next()
-
-    });
-  } else {
+  try {
+    await Promise.all(promises);
     next();
+  } catch (err) {
+    res.status(500).json({ message: 'Error deleting files' });
   }
-
 };
+
 
 
 module.exports = {
   upload,
-  uploadFile,
   deleteFile,
   replaceFile,
 };
