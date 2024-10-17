@@ -121,6 +121,25 @@ ORDER BY p.created_at DESC;
       if (!title || !description) {
         return res.status(400).json({ message: 'Title and description are required' });
       }
+      const postId = req.params.id;
+      const userId = req.user.id;
+
+      const postQuery = 'SELECT user_id FROM posts WHERE id = $1';
+      const postResult = await db.query(postQuery, [postId]);
+
+      if (postResult.rows.length === 0) {
+        return res.status(404).json({ message: 'Post not found' });
+      }
+
+      const postOwnerId = postResult.rows[0].user_id;
+
+
+      if (postOwnerId !== userId) {
+        return res.status(403).json({ message: 'You are not the owner of this post' });
+      }
+
+
+
 
       const oldImgName = (req.body.imgName && req.body.imgName !== 'null') ? req.body.imgName : null;
       const oldVideoName = (req.body.videoName && req.body.videoName !== 'null') ? req.body.videoName : null;
@@ -130,32 +149,27 @@ ORDER BY p.created_at DESC;
 
       if (deleteImage === 'true') {
         if (req.imageName && req.imageName !== 'null') {
-          // Если запрос на удаление и есть новое изображение, заменяем старое на новое
           newimgName = req.imageName;
         } else {
-          // Если новое изображение не предоставлено, удаляем старое
           newimgName = null;
         }
       }
 
       if (deleteVideo === 'true') {
         if (req.videoName && req.videoName !== 'null') {
-          // Если запрос на удаление и есть новое видео, заменяем старое на новое
           newVideoName = req.videoName;
         } else {
-          // Если новое видео не предоставлено, удаляем старое
           newVideoName = null;
         }
       }
 
-      const user_id = req.user.id;
-      const postId = req.params.id;
+
 
       let updateQuery = `
       UPDATE posts
       SET title = $1, content = $2, user_id = $3`;
 
-      const values = [title, description, user_id];
+      const values = [title, description, userId];
 
       if (newimgName !== undefined) {
         updateQuery += `, img = $4`;
