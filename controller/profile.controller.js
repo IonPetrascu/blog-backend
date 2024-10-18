@@ -33,47 +33,52 @@ class ProfileController {
 
       let queryPostsOfUser = `
 WITH like_dislike_counts AS (
-  SELECT
-    v.entity_id AS post_id,
-    COUNT(CASE WHEN v.vote_type = TRUE THEN 1 END)::INTEGER AS likes_count,
-    COUNT(CASE WHEN v.vote_type = FALSE THEN 1 END)::INTEGER AS dislikes_count
-  FROM votes v
-  WHERE v.entity_type = 'post'
-  GROUP BY v.entity_id
-),
-user_votes AS (
-  SELECT
-    v.entity_id AS post_id,
-    MAX(CASE
-          WHEN v.user_id = $2 THEN
-            CASE WHEN v.vote_type = TRUE THEN 1 ELSE 0 END
-          ELSE NULL END) AS user_vote
-  FROM votes v
-  WHERE v.entity_type = 'post' AND v.user_id = $2
-  GROUP BY v.entity_id
-)
-SELECT
-  p.id AS id,
-  p.user_id,
-  p.title,
-  p.content,
-  p.created_at,
-  p.updated_at,
-  p.img,
-  COALESCE(lc.likes_count, 0) AS likes_count,
-  COALESCE(lc.dislikes_count, 0) AS dislikes_count,
-  uv.user_vote,
-  COUNT(c.id)::INTEGER AS comments_count,
-  ur.u_name AS user_name,
-  ur.u_email AS user_email,
-  ur.img AS user_img
-FROM posts p
-LEFT JOIN like_dislike_counts lc ON p.id = lc.post_id
-LEFT JOIN user_votes uv ON p.id = uv.post_id
-LEFT JOIN comments c ON p.id = c.post_id
-LEFT JOIN "usersReg" ur ON p.user_id = ur.id
-WHERE p.user_id = $1
-
+      SELECT
+        v.entity_id AS post_id,
+        COUNT(CASE WHEN v.vote_type = TRUE THEN 1 END)::INTEGER AS likes_count,
+        COUNT(CASE WHEN v.vote_type = FALSE THEN 1 END)::INTEGER AS dislikes_count
+      FROM votes v
+      WHERE v.entity_type = 'post'
+      GROUP BY v.entity_id
+    ),
+    user_votes AS (
+      SELECT
+        v.entity_id AS post_id,
+        MAX(CASE
+              WHEN v.user_id = $2 THEN
+                CASE WHEN v.vote_type = TRUE THEN 1 ELSE 0 END
+              ELSE NULL END) AS user_vote
+      FROM votes v
+      WHERE v.entity_type = 'post' AND v.user_id = $2
+      GROUP BY v.entity_id
+    )
+    SELECT
+      p.id AS id,
+      p.user_id,
+      p.title,
+      p.content,
+      p.created_at,
+      p.updated_at,
+      p.img,
+      COALESCE(lc.likes_count, 0) AS likes_count,
+      COALESCE(lc.dislikes_count, 0) AS dislikes_count,
+      uv.user_vote,
+      COUNT(c.id)::INTEGER AS comments_count,
+      ur.u_name AS user_name,
+      ur.u_email AS user_email,
+      ur.img AS user_img,
+      CASE
+          WHEN COUNT(t.id) > 0 THEN ARRAY_AGG(t.name)
+          ELSE '{}'::TEXT[]
+      END AS tags
+    FROM posts p
+    LEFT JOIN like_dislike_counts lc ON p.id = lc.post_id
+    LEFT JOIN user_votes uv ON p.id = uv.post_id
+    LEFT JOIN comments c ON p.id = c.post_id
+    LEFT JOIN "usersReg" ur ON p.user_id = ur.id
+    LEFT JOIN post_tags pt ON p.id = pt.post_id
+    LEFT JOIN tags t ON pt.tag_id = t.id
+    WHERE p.user_id = $1
 `;
       const values = [userId, req.user.id];
 
