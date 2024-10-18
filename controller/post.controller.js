@@ -40,12 +40,18 @@ SELECT
   ur.id AS user_id,
   ur.u_name AS user_name,
   ur.u_email AS user_email,
-  ur.img AS user_img
+  ur.img AS user_img,
+  CASE
+                WHEN COUNT(t.id) > 0 THEN ARRAY_AGG(t.name)
+                ELSE '{}'::TEXT[]
+            END AS tags
 FROM posts p
 LEFT JOIN like_dislike_counts lc ON p.id = lc.post_id
 LEFT JOIN user_votes uv ON p.id = uv.post_id
 LEFT JOIN comments c ON p.id = c.post_id
 LEFT JOIN "usersReg" ur ON p.user_id = ur.id
+LEFT JOIN post_tags pt ON p.id = pt.post_id
+LEFT JOIN tags t ON pt.tag_id = t.id
     `;
       const values = [user_id];
 
@@ -79,13 +85,23 @@ LEFT JOIN "usersReg" ur ON p.user_id = ur.id
                          "usersReg".id AS u_id,
                          "usersReg".u_name,
                          "usersReg".u_email,
-                         "usersReg".img AS u_img
+                         "usersReg".img AS u_img,
+                        CASE
+                         WHEN COUNT(t.id) > 0 THEN ARRAY_AGG(t.name)
+                        ELSE '{}'::TEXT[]
+                         END AS tags
                        FROM
                          posts
                        JOIN
                          "usersReg" ON "usersReg".id = posts.user_id
+                        LEFT JOIN
+                          post_tags pt ON posts.id = pt.post_id
+                        LEFT JOIN
+                          tags t ON pt.tag_id = t.id
                        WHERE
-                         posts.id = $1`;
+                         posts.id = $1
+                        GROUP BY
+                          posts.id, "usersReg".id;`;
     try {
       const result = await db.query(insertQuery, [postId]);
 
@@ -100,10 +116,12 @@ LEFT JOIN "usersReg" ur ON p.user_id = ur.id
 
   async addPost(req, res) {
     try {
-      const { title, description } = req.body;
+      const { title, description, tags } = req.body;
       if (!title || !description) {
         return res.status(400).json({ message: 'Title and description are required' });
       }
+      const tagsArray = tags ? tags.split(',').map(tag => tag.trim()) : [];
+
       const imageName = req.imageName || null;
       const videoName = req.videoName || null;
 
@@ -117,8 +135,27 @@ LEFT JOIN "usersReg" ur ON p.user_id = ur.id
         ? [title, description, user_id, imageName, videoName]
         : [title, description, user_id];
 
-      const result = await db.query(insertQuery, values);
-      res.status(200).json(result.rows[0]);
+      const postResult = await db.query(insertQuery, values);
+      const postId = postResult.rows[0].id;
+
+      for (let i = 0; i < tagsArray.length; i++) {
+        const tagCheckQuery = `SELECT id FROM tags WHERE name = $1`;
+        let tagResult = await db.query(tagCheckQuery, [tagsArray[i]]);
+        let tagId;
+
+        if (tagResult.rows.length === 0) {
+          const insertTagQuery = `INSERT INTO tags(name) VALUES($1) RETURNING id`;
+          tagResult = await db.query(insertTagQuery, [tagsArray[i]]);
+          tagId = tagResult.rows[0].id;
+        } else {
+          tagId = tagResult.rows[0].id;
+        }
+        const insertPostTagQuery = `INSERT INTO post_tags(post_id, tag_id) VALUES($1, $2)`;
+        await db.query(insertPostTagQuery, [postId, tagId]);
+
+      }
+
+      res.status(200).json({ message: "Post add succesful" });
 
     } catch (error) {
       console.error('Error on add post:', error);
@@ -127,9 +164,11 @@ LEFT JOIN "usersReg" ur ON p.user_id = ur.id
 
   }
 
+
+
   async updatePost(req, res) {
     try {
-      const { title, description, deleteImage, deleteVideo } = req.body;
+      const { title, description, tags, deleteImage, deleteVideo } = req.body;
       if (!title || !description) {
         return res.status(400).json({ message: 'Title and description are required' });
       }
@@ -138,6 +177,7 @@ LEFT JOIN "usersReg" ur ON p.user_id = ur.id
 
       const postQuery = 'SELECT user_id FROM posts WHERE id = $1';
       const postResult = await db.query(postQuery, [postId]);
+      const tagsArray = tags ? tags.split(',').map(tag => tag.trim()) : [];
 
       if (postResult.rows.length === 0) {
         return res.status(404).json({ message: 'Post not found' });
@@ -149,9 +189,6 @@ LEFT JOIN "usersReg" ur ON p.user_id = ur.id
       if (postOwnerId !== userId) {
         return res.status(403).json({ message: 'You are not the owner of this post' });
       }
-
-
-
 
       const oldImgName = (req.body.imgName && req.body.imgName !== 'null') ? req.body.imgName : null;
       const oldVideoName = (req.body.videoName && req.body.videoName !== 'null') ? req.body.videoName : null;
@@ -174,7 +211,25 @@ LEFT JOIN "usersReg" ur ON p.user_id = ur.id
           newVideoName = null;
         }
       }
+      const queryDeleteTagsPost = `DELETE from post_tags WHERE post_id = $1`;
+      await db.query(queryDeleteTagsPost, [postId]);
 
+      for (let i = 0; i < tagsArray.length; i++) {
+        const tagCheckQuery = `SELECT id FROM tags WHERE name = $1`;
+        let tagResult = await db.query(tagCheckQuery, [tagsArray[i]]);
+        let tagId;
+
+        if (tagResult.rows.length === 0) {
+          const insertTagQuery = `INSERT INTO tags(name) VALUES($1) RETURNING id`;
+          tagResult = await db.query(insertTagQuery, [tagsArray[i]]);
+          tagId = tagResult.rows[0].id;
+        } else {
+          tagId = tagResult.rows[0].id;
+        }
+        const insertPostTagQuery = `INSERT INTO post_tags(post_id, tag_id) VALUES($1, $2)`;
+        await db.query(insertPostTagQuery, [postId, tagId]);
+
+      }
 
 
       let updateQuery = `
