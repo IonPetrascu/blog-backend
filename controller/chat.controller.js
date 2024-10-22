@@ -86,6 +86,46 @@ WHERE cu1.user_id = $1
     }
   }
 
+  async deleteChat(req, res) {
+
+    if (!req.user) {
+      return res.status(401).send('Token not found');
+    }
+    const user_id = req.user.id;
+    const chatId = req.params.id
+    try {
+      const query = ` SELECT id FROM chats WHERE id = $1`
+
+      const resChat = await db.query(query, [chatId])
+
+
+      if (resChat.rows[0].length === 0) {
+        res.status(404).json({ message: 'Chat not found' });
+      }
+
+      const queryChatUsers = `SELECT * FROM chat_users WHERE chat_id = $1`
+
+      const resChatUsers = await db.query(queryChatUsers, [chatId])
+
+      const userOfChat = resChatUsers.rows.findIndex((user) => user.user_id === user_id)
+      if (userOfChat === -1) {
+        res.status(404).json({ message: 'Error on delete chat' });
+      }
+      const queryChat = `DELETE  FROM chats WHERE id = $1 RETURNING id`
+
+      const resDeleteChat = await db.query(queryChat, [chatId])
+
+      if (resDeleteChat.rows.length === 0) {
+        throw new Error('Chat not deleted');
+      }
+
+      res.status(200).json({ id: resDeleteChat.rows[0].id });
+    } catch (err) {
+      console.error('Error deletind chat:', err);
+      res.status(500).send('Error deletind chat');
+    }
+  }
+
 
 }
 
