@@ -104,13 +104,57 @@ LEFT JOIN tags t ON pt.tag_id = t.id
                           posts.id, "usersReg".id;`;
     try {
       const result = await db.query(insertQuery, [postId]);
+      const post = result.rows[0]
+      const postTags = post.tags
 
-      res.status(200).json(result.rows[0]);
+      const similarPostsQuery = `
+      SELECT
+        p.*,
+        ur.u_name,
+        ur.u_email,
+        ur.img AS u_img,
+        CASE
+          WHEN COUNT(t.id) > 0 THEN ARRAY_AGG(t.name)
+          ELSE '{}'::TEXT[]
+        END AS tags
+      FROM
+        posts p
+      JOIN
+        "usersReg" ur ON ur.id = p.user_id
+      LEFT JOIN
+        post_tags pt ON p.id = pt.post_id
+      LEFT JOIN
+        tags t ON pt.tag_id = t.id
+      WHERE
+        p.id != $1 AND t.name = ANY($2)
+      GROUP BY
+        p.id, ur.u_name, ur.u_email, ur.img;`;
+
+
+      const similarPostsResult = await db.query(similarPostsQuery, [postId, postTags]);
+
+      const transformedPost = {
+        id: post.id,
+        title: post.title,
+        content: post.content,
+        created_at: post.created_at,
+        updated_at: post.updated_at,
+        img: post.img || null,
+        tags: post.tags,
+        u_email: post.u_email,
+        u_name: post.u_name,
+        u_video: post.video || null,
+        u_id: post.u_id,
+        u_img: post.u_img || null,
+        similarPosts: similarPostsResult.rows
+      };
+
+
+      res.status(200).json(transformedPost);
     } catch (error) {
       console.error('Error on get post:', error);
       res.status(500).send('Error on get post');
     }
-
     db.end;
   }
 
