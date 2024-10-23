@@ -203,6 +203,26 @@ WITH like_dislike_counts AS (
     }
   }
 
+  async getUsers(req, res) {
+
+    if (!req.user) {
+      return res.status(401).send('Token not found');
+    }
+    try {
+      const query = `SELECT * FROM "usersReg"`
+      const userId = req.user.id;
+      const response = await db.query(query)
+
+      if (response.rows.length === 0) {
+        res.status(404).json({ message: 'Users not found' });
+      }
+      const list = response.rows.map(({ u_password, ...chat }) => chat).filter((user) => user.id !== userId)
+      res.status(200).json(list)
+    } catch (err) {
+      console.error('Error on get users:', err);
+      res.status(500).send('Error on get users:');
+    }
+  }
 }
 
 module.exports = new ProfileController()

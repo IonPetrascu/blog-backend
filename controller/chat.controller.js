@@ -60,9 +60,8 @@ WHERE cu1.user_id = $1
     `, [user_id, other_user_id]);
 
       if (existingChat.rows.length > 0) {
-        return res.status(200).json({ message: 'Chat already exists', chat: existingChat.rows[0] });
+        return res.status(302).json({ message: 'Chat already exists', chat: existingChat.rows[0] });
       }
-      // Вставка нового чата
       const chatResult = await db.query(
         'INSERT INTO chats (name, is_private) VALUES ($1, $2) RETURNING *',
         [chat_name, true]
@@ -74,12 +73,29 @@ WHERE cu1.user_id = $1
         [chatId, user_id]
       );
 
-      await db.query(
-        'INSERT INTO chat_users (chat_id, user_id) VALUES ($1, $2)',
-        [chatId, other_user_id]
-      );
+      const otherUserDetails = await db.query(`
+      SELECT ur.id AS user_id, ur.u_name AS user_name, ur.img AS user_img
+      FROM "usersReg" ur
+      WHERE ur.id = $1
+    `, [other_user_id]);
 
-      res.status(201).json({ message: 'Chat created successfully', chat: chatResult.rows[0] });
+
+      const chatObject = {
+        chat_id: chatId,
+        name: chat_name,
+        last_message_content: null,
+        last_message_sent_at: null,
+        message_id: null,
+        user_id: otherUserDetails.rows[0].user_id,
+        user_name: otherUserDetails.rows[0].user_name,
+        user_img: otherUserDetails.rows[0].user_img
+      };
+
+      res.status(201).json({
+        message: 'Chat created successfully',
+        chat: chatObject
+      });
+
     } catch (err) {
       console.error('Error creating chat:', err);
       res.status(500).send('Error creating chat');
@@ -125,7 +141,6 @@ WHERE cu1.user_id = $1
       res.status(500).send('Error deletind chat');
     }
   }
-
 
 }
 
