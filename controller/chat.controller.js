@@ -73,6 +73,11 @@ WHERE cu1.user_id = $1
         [chatId, user_id]
       );
 
+      await db.query(
+        'INSERT INTO chat_users (chat_id, user_id) VALUES ($1, $2)',
+        [chatId, other_user_id]
+      );
+
       const otherUserDetails = await db.query(`
       SELECT ur.id AS user_id, ur.u_name AS user_name, ur.img AS user_img
       FROM "usersReg" ur
