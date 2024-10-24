@@ -9,9 +9,9 @@ class PostController {
     }
 
     const user_id = req.user.id;
-    const { sortBy = 'new', searchQuery = '' } = req.query;
+    const { sortBy = 'new', searchQuery = '', page = 1, limit = 6 } = req.query;
     const order = sortBy === 'old' ? 'ASC' : 'DESC';
-
+    const offset = (page - 1) * limit;
     try {
       let query = `
     WITH like_dislike_counts AS (
@@ -62,12 +62,26 @@ LEFT JOIN tags t ON pt.tag_id = t.id
 
       query += `
       GROUP BY p.id, lc.likes_count, lc.dislikes_count, uv.user_vote, ur.id, ur.u_name, ur.u_email, ur.img
-      ORDER BY p.created_at ${order};
+      ORDER BY p.created_at ${order}
+      LIMIT $${values.length + 1} OFFSET $${values.length + 2};
     `;
-
+      values.push(limit, offset);
       const result = await db.query(query, values);
 
-      res.status(200).json(result.rows);
+      const totalQuery = `
+        SELECT COUNT(*) FROM posts p
+        ${searchQuery ? 'WHERE p.title ILIKE $1' : ''}
+      `;
+      const totalValues = searchQuery ? [`%${searchQuery}%`] : [];
+      const totalResult = await db.query(totalQuery, totalValues);
+      const totalPosts = totalResult.rows[0].count;
+
+      res.status(200).json({
+        posts: result.rows,
+        totalPosts: parseInt(totalPosts, 10),
+        currentPage: parseInt(page, 10),
+        totalPages: Math.ceil(totalPosts / limit)
+      });
     } catch (err) {
       console.error('Error on get posts:', err);
       res.status(500).send('Error on get posts');
