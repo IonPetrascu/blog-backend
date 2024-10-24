@@ -284,7 +284,11 @@ LEFT JOIN tags t ON pt.tag_id = t.id
         } else {
           tagId = tagResult.rows[0].id;
         }
-        const insertPostTagQuery = `INSERT INTO post_tags(post_id, tag_id) VALUES($1, $2)`;
+        const insertPostTagQuery = `
+    INSERT INTO post_tags(post_id, tag_id)
+    VALUES($1, $2)
+    ON CONFLICT (post_id, tag_id) DO NOTHING;
+  `;
         await db.query(insertPostTagQuery, [postId, tagId]);
 
       }

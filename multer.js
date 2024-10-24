@@ -129,7 +129,7 @@ const replaceFile = async (req, res, next) => {
     await Promise.all(promises);
     next();
   } catch (err) {
-    res.status(500).json({ message: 'Error deleting files' });
+    next();
   }
 };
 
