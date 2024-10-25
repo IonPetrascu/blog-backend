@@ -8,12 +8,18 @@ class AuthController {
     try {
       const { email, password, name } = req.body;
 
+      const existingUser = await db.query('SELECT * FROM "usersReg" WHERE u_email = $1', [email]);
+      if (existingUser.rows.length > 0) {
+        return res.status(400).json({ message: 'Email already in use' });
+      }
       const hashedPassword = await bcrypt.hash(password, 10);
 
       const result = await db.query(
         'INSERT INTO "usersReg" (u_name, u_password, u_email) VALUES ($1, $2, $3) RETURNING *',
         [name, hashedPassword, email]
       );
+
+
 
       if (result.rows.length > 0) {
         res.status(201).json('Register succes!');
@@ -35,14 +41,10 @@ class AuthController {
 
       const user = result.rows[0]
 
-      if (!user) {
-        return res.status(400).json({ message: "Invalid Credentials" })
-      }
-
       const isPasswordMatch = await bcrypt.compare(password, user['u_password'])
 
-      if (!isPasswordMatch) {
-        return res.status(400).json({ message: "Invalid Credentials" })
+      if (!user || !isPasswordMatch) {
+        return res.status(400).json({ message: "Password or email incorrect" });
       }
 
       const token = jwt.sign({ userId: user.id }, process.env.SECRET_KEY, {
