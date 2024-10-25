@@ -41,6 +41,10 @@ class AuthController {
 
       const user = result.rows[0]
 
+      if (!user) {
+        return res.status(400).json({ message: 'Password or email incorrect' });
+      }
+
       const isPasswordMatch = await bcrypt.compare(password, user['u_password'])
 
       if (!user || !isPasswordMatch) {
@@ -54,7 +58,7 @@ class AuthController {
       res.json({ token })
     } catch (error) {
       console.error(error);
-      res.status(500).send('Server Error')
+      res.status(500).json({ message: 'Server Error' })
     }
   }
 
